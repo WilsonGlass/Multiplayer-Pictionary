@@ -6,12 +6,19 @@ IP = socket.gethostbyname(socket.gethostname())
 ADDR = (IP, PORT)
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
+conns = []
 
 def handleclient(conn, addr):
+    conns.append(conn)
+    if len(conns) >= 2:
+        conns[0].send("drawer".encode("utf-8"))
+        for x in conns[1:]:
+            x.send("".encode("utf-8"))
     while True:
-        msg = conn.recv(64).decode("utf-8")
+        msg = conn.recv(64)
         if msg:
-            print(msg)
+            for x in conns:
+                x.send(msg)
 
 def start():
     server.listen()
