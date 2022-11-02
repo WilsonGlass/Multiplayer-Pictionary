@@ -8,7 +8,7 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
 conns = []
 
-def handleclient(conn, addr):
+def handleclient(conn):
     conns.append(conn)
     if len(conns) >= 2:
         conns[0].send("drawer".encode("utf-8"))
