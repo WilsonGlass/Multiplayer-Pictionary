@@ -2,6 +2,8 @@ import pygame
 import sys
 import socket
 import threading
+import json
+import random
 
 class Client:
     def __init__(self) -> None:
@@ -16,7 +18,7 @@ class Client:
         # Pygame information
         self.isdrawer = []
         self.msgss = []
-        self.word = "clown"
+        self.word = self.get_word('words.json')
         self.x = int
         self.y = int
         self.width = 400
@@ -29,6 +31,16 @@ class Client:
         self.msg = ""
         self.text = pygame.font.Font(None, 25)
 
+    def get_word(self, filename):
+        """
+        Reads in words from the words.json file and picks one at random. """
+
+        f = open(filename)
+        data = json.load(f)
+        words = data["possible words"]
+        word = random.choice(words)
+        return word
+        
     def connect(self) -> None:
         """
         Connects to a given server address and initiates threading the information between them.
