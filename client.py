@@ -1,18 +1,21 @@
-import pygame
-import sys
-import socket
-import threading
-import pickle
+from pygame import init, key, QUIT, MOUSEBUTTONDOWN, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
+from pygame.event import get
+from pygame.display import set_caption, set_mode, update
+from pygame.font import Font
+from socket import socket, gethostbyname, gethostname, AF_INET, SOCK_STREAM
+from threading import Thread
+from pickle import dumps, loads
 
 class Client:
     def __init__(self) -> None:
-        pygame.init()
+        init()
 
         # Socket information
         self.port = 5050
-        self.ip = socket.gethostbyname(socket.gethostname())
+        self.ip = gethostbyname(gethostname())
         self.addr = (self.ip, self.port)
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client = socket(AF_INET, SOCK_STREAM)
+        self.is_drawer = []
         self.information = {
             "X": None, 
             "Y": None, 
@@ -26,32 +29,47 @@ class Client:
         self.width = 400
         self.height = 400
         self.pixels = 4
-        self.screen = pygame.display.set_mode((self.width+200, self.height))
-        pygame.display.set_caption("Pictionary")
+        self.screen = set_mode((self.width+200, self.height))
+        set_caption("Pictionary")
         self.board = [[(255, 255, 255) for _ in range(self.width//self.pixels)] for _ in range(self.width//self.pixels)]
         self.istyping = False
-        self.text = pygame.font.Font(None, 25)
+        self.text = Font(None, 25)
+        self.first_message = None
 
     def connect(self) -> None:
         """
         Connects to a given server address and initiates threading the information between them.
         """
-        self.client.connect(self.addr)
-        threading.Thread(target=self.recvmsgs).start()
+        try:
+            self.client.connect(self.addr)
+            Thread(target=self.recvmsgs).start()
+        except Exception as e:
+            print("Error connecting to server")
+            print(e)
 
     def recvmsgs(self) -> None:
         """
         Pickle loads incoming information and changes self.information accordingly.
         If a guesser, will update canvas as the drawer's x and y coordinates are sent in.
         """
-        info_recieved = pickle.loads(self.client.recv(64))
-        print(info_recieved)
-        self.information = info_recieved
         try:
-            if self.information["drawer"] == False:
-                self.board[self.information["X"]//self.information["Y"]][self.information["Y"]//self.pixels] = (0, 0, 0)
-        except:
-            self.msgss.append(info_recieved)
+            self.first_message = loads(self.client.recv(64))
+            print("First message: ", self.first_message)
+            if self.first_message["drawer"] == True:
+                self.is_drawer.append(0)
+            print("Is Drawer ", self.is_drawer)
+            while True:
+                # loads information from other clients
+                self.information = loads(self.client.recv(64))
+                print(self.information)
+                if not self.is_drawer:
+                    self.board[self.information["X"]//self.pixels][self.information["Y"]//self.pixels] = (0, 0, 0)
+                if self.information["msg"] != None:
+                    self.msgss.append(self.information["msg"])
+        except Exception as e:
+            print("Error in recvmsgs")
+            print(e)
+
 
     def sub(self) -> None:
         """
@@ -60,21 +78,22 @@ class Client:
         subscribed = True
         entered_message = ""
         while subscribed:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.display.quit()
-                    sys.exit()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
+            for event in get():
+                if event.type == QUIT:
+                    quit()
+                elif event.type == MOUSEBUTTONDOWN:
                     if self.width+20 <= event.pos[0] <= self.width+160 and self.height - 20 <= event.pos[1] <= self.height:
                         self.istyping=True
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_BACKSPACE:
+                elif event.type == KEYDOWN:
+                    if event.key == K_BACKSPACE:
                         entered_message = entered_message[:-1]
-                    elif event.key == pygame.K_SPACE:
+                    elif event.key == K_SPACE:
                         pass
-                    elif event.key == pygame.K_RETURN:
-                        if self.information["drawer"] == False:
+                    elif event.key == K_RETURN:
+                        if self.is_drawer:
                             if entered_message not in self.msgss:
+                                #fix this at some point
+
                                 self.client.send(entered_message.encode("utf-8"))
                             if self.information["msg"] == self.word:
                                 print("YOU WIN")
@@ -83,12 +102,11 @@ class Client:
                         entered_message += event.unicode
                     
             
-            if pygame.mouse.get_pressed()[0]:
-                if self.information["drawer"] == True:
-                    print(self.information)
-                    self.information["X"], self.information["Y"] = pygame.mouse.get_pos()
+            if mouse.get_pressed()[0]:
+                if self.is_drawer:
+                    self.information["X"], self.information["Y"] = mouse.get_pos()
                     if self.information["X"] <= self.width:
-                        self.client.send(pickle.dumps(self.information))
+                        self.client.send(dumps(self.information))
                         self.board[self.information["X"]//self.pixels][self.information["Y"]//self.pixels] = (0, 0, 0)
 
             for msgs in self.msgss:
@@ -99,13 +117,13 @@ class Client:
                 self.screen.blit(guess_text, (self.width+20, 15*self.msgss.index(msgs)))
 
 
-            pygame.draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
+            draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
             guess_being_entered = self.text.render(self.information["msg"], True, (255,255,255))
             self.screen.blit(guess_being_entered, (self.width+10, self.height-15))
 
 
             for i in range(len(self.board)):
                 for j in range(len(self.board[0])):
-                    pygame.draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
+                    draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
 
-            pygame.display.update()
+            update()

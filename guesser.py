@@ -2,7 +2,7 @@
 # to guess what the Drawer is drawing.  If correct, the Guesser wins,
 # if not, the Guesser keeps guessing until time is up.  
 
-from Player import Player
+from player import Player
 class Guesser(Player):
     def __init__(self, num:int, word:str):
         super.__init__(num, word)

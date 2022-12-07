@@ -1,4 +1,5 @@
 from client import Client
+from threading import Thread
 
 def game() -> None:
     """
