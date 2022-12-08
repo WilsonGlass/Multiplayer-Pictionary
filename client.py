@@ -7,7 +7,7 @@ from threading import Thread
 from pickle import dumps, loads
 from canvas import Canvas
 
-class Client:
+class Client(object):
     def __init__(self) -> None:
         init()
 
