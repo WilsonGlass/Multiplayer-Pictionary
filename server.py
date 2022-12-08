@@ -39,7 +39,7 @@ def handleclient(conn: socket, addr: str) -> None:
             conns[connection_index].send(pickled_guesser_information)
 
     while True:
-        msg = conn.recv(64)
+        msg = conn.recv(4096)
         if msg:
             for x in conns:
                 x.send(msg)

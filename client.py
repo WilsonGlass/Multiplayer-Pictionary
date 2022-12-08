@@ -5,6 +5,7 @@ from pygame.font import Font
 from socket import socket, gethostbyname, gethostname, AF_INET, SOCK_STREAM
 from threading import Thread
 from pickle import dumps, loads
+from canvas import Canvas
 
 class Client:
     def __init__(self) -> None:
@@ -26,15 +27,17 @@ class Client:
         # Pygame information
         self.msgss = []
         self.word = "clown"
-        self.width = 400
-        self.height = 400
+        self.width = int
+        self.height = int
         self.pixels = 4
-        self.screen = set_mode((self.width+200, self.height))
-        set_caption("Pictionary")
-        self.board = [[(255, 255, 255) for _ in range(self.width//self.pixels)] for _ in range(self.width//self.pixels)]
+        self.board = None
         self.istyping = False
         self.text = Font(None, 25)
         self.first_message = None
+        self.red = None
+        self.blue = None
+        self.green = None
+        self.black = None
 
     def connect(self) -> None:
         """
@@ -53,22 +56,32 @@ class Client:
         If a guesser, will update canvas as the drawer's x and y coordinates are sent in.
         """
         try:
-            self.first_message = loads(self.client.recv(64))
+            self.first_message = loads(self.client.recv(4096))
             print("First message: ", self.first_message)
             if self.first_message["drawer"] == True:
                 self.is_drawer.append(0)
             print("Is Drawer ", self.is_drawer)
             while True:
                 # loads information from other clients
-                self.information = loads(self.client.recv(64))
+                self.information = loads(self.client.recv(4096))
                 print(self.information)
                 if not self.is_drawer:
-                    self.board[self.information["X"]//self.pixels][self.information["Y"]//self.pixels] = (0, 0, 0)
+                    draw.rect(self.board, (0,0,0), (self.information["X"], self.information["Y"], 10, 10))
                 if self.information["msg"] != None:
                     self.msgss.append(self.information["msg"])
         except Exception as e:
             print("Error in recvmsgs")
             print(e)
+
+    def initialize_canvas(self):
+        can = Canvas()
+        self.height = can.height
+        self.width = can.width
+        self.board = can.get_screen()
+        self.red = can.red
+        self.green = can.green
+        self.blue = can.blue
+        self.black = can.black
 
 
     def sub(self) -> None:
@@ -81,9 +94,6 @@ class Client:
             for event in get():
                 if event.type == QUIT:
                     quit()
-                elif event.type == MOUSEBUTTONDOWN:
-                    if self.width+20 <= event.pos[0] <= self.width+160 and self.height - 20 <= event.pos[1] <= self.height:
-                        self.istyping=True
                 elif event.type == KEYDOWN:
                     if event.key == K_BACKSPACE:
                         entered_message = entered_message[:-1]
@@ -107,23 +117,23 @@ class Client:
                     self.information["X"], self.information["Y"] = mouse.get_pos()
                     if self.information["X"] <= self.width:
                         self.client.send(dumps(self.information))
-                        self.board[self.information["X"]//self.pixels][self.information["Y"]//self.pixels] = (0, 0, 0)
+                        draw.rect(self.board, (0,0,0), (self.information["X"], self.information["Y"], 10, 10))
 
-            for msgs in self.msgss:
-                if msgs == self.word:
-                    guess_text = self.text.render(msgs, True, (0, 255, 0))
-                else:
-                    guess_text = self.text.render(msgs, True, (255, 255, 255))
-                self.screen.blit(guess_text, (self.width+20, 15*self.msgss.index(msgs)))
-
-
-            draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
-            guess_being_entered = self.text.render(self.information["msg"], True, (255,255,255))
-            self.screen.blit(guess_being_entered, (self.width+10, self.height-15))
+            #for msgs in self.msgss:
+            #    if msgs == self.word:
+            #        guess_text = self.text.render(msgs, True, (0, 255, 0))
+            #    else:
+            #        guess_text = self.text.render(msgs, True, (255, 255, 255))
+            #    self.screen.blit(guess_text, (self.width+20, 15*self.msgss.index(msgs)))
 
 
-            for i in range(len(self.board)):
-                for j in range(len(self.board[0])):
-                    draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
+            #draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
+            #guess_being_entered = self.text.render(self.information["msg"], True, (255,255,255))
+            #self.screen.blit(guess_being_entered, (self.width+10, self.height-15))
+
+
+            #for i in range(len(self.board)):
+            #    for j in range(len(self.board[0])):
+            #        draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
 
             update()
