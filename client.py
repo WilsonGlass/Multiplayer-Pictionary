@@ -38,6 +38,7 @@ class Client(object):
         self.blue = None
         self.green = None
         self.black = None
+        self.draw_color = (0, 0, 0)
 
     def connect(self) -> None:
         """
@@ -66,7 +67,10 @@ class Client(object):
                 self.information = loads(self.client.recv(4096))
                 print(self.information)
                 if not self.is_drawer:
-                    draw.rect(self.board, (0,0,0), (self.information["X"], self.information["Y"], 10, 10))
+                    self.draw_color = self.get_color((self.information["X"], self.information["Y"]))
+                    if self.clear_button.collidepoint((self.information["X"], self.information["Y"])):
+                        draw.rect(self.board, (255,255,255), (0,0,500,440))
+                    draw.rect(self.board, self.draw_color, (self.information["X"], self.information["Y"], 10, 10))
                 if self.information["msg"] != None:
                     self.msgss.append(self.information["msg"])
         except Exception as e:
@@ -74,14 +78,36 @@ class Client(object):
             print(e)
 
     def initialize_canvas(self):
+        """
+        creates the canvas, screen, and buttons
+        """
         can = Canvas()
+        can.canvas()
+        can.buttons()
         self.height = can.height
         self.width = can.width
         self.board = can.get_screen()
         self.red = can.red
-        self.green = can.green
         self.blue = can.blue
+        self.green = can.green
         self.black = can.black
+        self.clear_button = can.clear_button
+
+    def get_color(self, coordinates: tuple) -> tuple:
+        """
+        If the color buttons are clicked, returns the colors corresponding tuple.
+        e.g. (0, 0, 0) is black.
+        """
+        if self.red.collidepoint(coordinates):
+            return (255,0,0)
+        elif self.blue.collidepoint(coordinates):
+            return (0,255,0)
+        elif self.green.collidepoint(coordinates):
+            return (0,0,255)
+        elif self.black.collidepoint(coordinates):
+            return (0,0,0)
+        else:
+            return self.draw_color
 
 
     def sub(self) -> None:
@@ -103,7 +129,6 @@ class Client(object):
                         if self.is_drawer:
                             if entered_message not in self.msgss:
                                 #fix this at some point
-
                                 self.client.send(entered_message.encode("utf-8"))
                             if self.information["msg"] == self.word:
                                 print("YOU WIN")
@@ -114,10 +139,16 @@ class Client(object):
             
             if mouse.get_pressed()[0]:
                 if self.is_drawer:
-                    self.information["X"], self.information["Y"] = mouse.get_pos()
+                    coordinates = mouse.get_pos()
+                    if self.clear_button.collidepoint(coordinates):
+                        draw.rect(self.board, (255,255,255), (0,0,500,440))
+                    self.draw_color = self.get_color(coordinates)
+                    self.information["X"], self.information["Y"] = coordinates
+
                     if self.information["X"] <= self.width:
                         self.client.send(dumps(self.information))
-                        draw.rect(self.board, (0,0,0), (self.information["X"], self.information["Y"], 10, 10))
+                        print(self.draw_color)
+                        draw.rect(self.board, self.draw_color, (self.information["X"], self.information["Y"], 10, 10))
 
             #for msgs in self.msgss:
             #    if msgs == self.word:
