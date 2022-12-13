@@ -1,6 +1,6 @@
 from pygame import init, key, QUIT, MOUSEBUTTONDOWN, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
 from pygame.event import get
-from pygame.display import set_caption, set_mode, update
+from pygame.display import set_caption, set_mode, update, flip
 from pygame.font import Font
 from socket import socket, gethostbyname, gethostname, AF_INET, SOCK_STREAM
 from threading import Thread
@@ -122,19 +122,26 @@ class Client(object):
                     quit()
                 elif event.type == KEYDOWN:
                     if event.key == K_BACKSPACE:
-                        entered_message = entered_message[:-1]
+                        entered_message = ""
+                        draw.rect(self.board, (255, 255, 255), (200, 475, 200, 100))
                     elif event.key == K_SPACE:
                         pass
                     elif event.key == K_RETURN:
-                        if self.is_drawer:
-                            if entered_message not in self.msgss:
-                                #fix this at some point
-                                self.client.send(entered_message.encode("utf-8"))
-                            if self.information["msg"] == self.word:
+                        if not self.is_drawer:
+                            if entered_message == self.word:
                                 print("YOU WIN")
+                                self.information["msg"] = "WIN"
+                                winning_message = self.text.render("YOU WIN", True, (0, 255, 0))
+                                self.board.blit(winning_message, (0, 0))
                             entered_message = ""
+                            draw.rect(self.board, (255, 255, 255), (200, 475, 200, 100))
                     else:
-                        entered_message += event.unicode
+                        if len(entered_message) < 10:
+                            entered_message += event.unicode
+                    print("entered_message", entered_message)
+                    rendered_entered_message = self.text.render(entered_message, True, (0, 0, 0))
+                    self.board.blit(rendered_entered_message, (200, 475))
+                    flip()
                     
             
             if mouse.get_pressed()[0]:
@@ -149,22 +156,5 @@ class Client(object):
                         self.client.send(dumps(self.information))
                         print(self.draw_color)
                         draw.rect(self.board, self.draw_color, (self.information["X"], self.information["Y"], 10, 10))
-
-            #for msgs in self.msgss:
-            #    if msgs == self.word:
-            #        guess_text = self.text.render(msgs, True, (0, 255, 0))
-            #    else:
-            #        guess_text = self.text.render(msgs, True, (255, 255, 255))
-            #    self.screen.blit(guess_text, (self.width+20, 15*self.msgss.index(msgs)))
-
-
-            #draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
-            #guess_being_entered = self.text.render(self.information["msg"], True, (255,255,255))
-            #self.screen.blit(guess_being_entered, (self.width+10, self.height-15))
-
-
-            #for i in range(len(self.board)):
-            #    for j in range(len(self.board[0])):
-            #        draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
 
             update()
