@@ -1,6 +1,7 @@
 from socket import gethostbyname, gethostname, socket,AF_INET, SOCK_STREAM
 from threading import Thread
 from pickle import dumps
+from player import Player
 
 PORT = 5050
 IP = gethostbyname(gethostname())
@@ -8,17 +9,20 @@ ADDR = (IP, PORT)
 server = socket(AF_INET, SOCK_STREAM)
 server.bind(ADDR)
 conns = []
+word = Player.get_word()
 guesser_information = {
             "X": 0, 
             "Y": 0, 
             "msg": None,
-            "drawer": False
+            "drawer": False,
+            "word": word
 }
 drawer_information = {
             "X": 0, 
             "Y": 0, 
             "msg": None,
-            "drawer": True
+            "drawer": True,
+            "word": word
 }
 pickled_guesser_information = dumps(guesser_information)
 pickled_drawer_information = dumps(drawer_information)

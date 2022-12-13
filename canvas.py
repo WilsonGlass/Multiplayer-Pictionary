@@ -23,8 +23,8 @@ class Canvas(object):
 
     def buttons(self):
         self.red = pygame.draw.rect(self.screen, (255,0,0), pygame.Rect(30,460,30,30))
-        self.blue = pygame.draw.rect(self.screen, (0,255,0), pygame.Rect(70,460,30,30))
-        self.green = pygame.draw.rect(self.screen, (0,0,255), pygame.Rect(110,460,30,30))
+        self.blue = pygame.draw.rect(self.screen, (0,0,255), pygame.Rect(110,460,30,30))
+        self.green = pygame.draw.rect(self.screen, (0,255,0), pygame.Rect(70,460,30,30))
         self.black = pygame.draw.rect(self.screen, (0,0,0), pygame.Rect(150,460,30,30))
         self.clear_button = pygame.draw.rect(self.screen, (100,100,100), (420,470,60,60))
         

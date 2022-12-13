@@ -21,12 +21,17 @@ class Client(object):
             "X": None, 
             "Y": None, 
             "msg": None,
-            "drawer": None
+            "drawer": None,
+            "word": None
         }
 
         # Pygame information
+        self.black_tuple = (0, 0, 0)
+        self.white_tuple = (255, 255, 255)
+        self.red_tuple = (255, 0, 0)
+        self.green_tuple = (0, 255, 0)
+        self.blue_tuple = (0, 0, 255)
         self.msgss = []
-        self.word = "clown"
         self.width = int
         self.height = int
         self.pixels = 4
@@ -68,8 +73,9 @@ class Client(object):
                 print(self.information)
                 if not self.is_drawer:
                     self.draw_color = self.get_color((self.information["X"], self.information["Y"]))
+                    #clear canvas button
                     if self.clear_button.collidepoint((self.information["X"], self.information["Y"])):
-                        draw.rect(self.board, (255,255,255), (0,0,500,440))
+                        draw.rect(self.board, self.white_tuple, (0,0,500,440))
                     draw.rect(self.board, self.draw_color, (self.information["X"], self.information["Y"], 10, 10))
                 if self.information["msg"] != None:
                     self.msgss.append(self.information["msg"])
@@ -81,38 +87,48 @@ class Client(object):
         """
         creates the canvas, screen, and buttons
         """
-        can = Canvas()
-        can.canvas()
-        can.buttons()
-        self.height = can.height
-        self.width = can.width
-        self.board = can.get_screen()
-        self.red = can.red
-        self.blue = can.blue
-        self.green = can.green
-        self.black = can.black
-        self.clear_button = can.clear_button
+        try:
+            can = Canvas()
+            can.canvas()
+            can.buttons()
+            self.height = can.height
+            self.width = can.width
+            self.board = can.get_screen()
+            self.red = can.red
+            self.blue = can.blue
+            self.green = can.green
+            self.black = can.black
+            self.clear_button = can.clear_button
+        except Exception as e:
+            print("Error in initialize_canvas")
+            print(e)
 
     def get_color(self, coordinates: tuple) -> tuple:
         """
         If the color buttons are clicked, returns the colors corresponding tuple.
         e.g. (0, 0, 0) is black.
         """
-        if self.red.collidepoint(coordinates):
-            return (255,0,0)
-        elif self.blue.collidepoint(coordinates):
-            return (0,255,0)
-        elif self.green.collidepoint(coordinates):
-            return (0,0,255)
-        elif self.black.collidepoint(coordinates):
-            return (0,0,0)
-        else:
-            return self.draw_color
+        try:
+            if self.red.collidepoint(coordinates):
+                return self.red_tuple
+            elif self.blue.collidepoint(coordinates):
+                return self.blue_tuple
+            elif self.green.collidepoint(coordinates):
+                return self.green_tuple
+            elif self.black.collidepoint(coordinates):
+                return self.black_tuple
+            else:
+                # return what it already is.
+                return self.draw_color
+        except Exception as e:
+            print("Error in get_color")
+            print(e)
 
 
     def sub(self) -> None:
         """
         Subscribing to the information being sent in.
+        Key strokes, clicks, mouse movements, etc.
         """
         subscribed = True
         entered_message = ""
@@ -123,32 +139,33 @@ class Client(object):
                 elif event.type == KEYDOWN:
                     if event.key == K_BACKSPACE:
                         entered_message = ""
-                        draw.rect(self.board, (255, 255, 255), (200, 475, 200, 100))
+                        draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                     elif event.key == K_SPACE:
                         pass
                     elif event.key == K_RETURN:
                         if not self.is_drawer:
-                            if entered_message == self.word:
+                            if entered_message == self.information["word"]:
                                 print("YOU WIN")
                                 self.information["msg"] = "WIN"
                                 winning_message = self.text.render("YOU WIN", True, (0, 255, 0))
                                 self.board.blit(winning_message, (0, 0))
                             entered_message = ""
-                            draw.rect(self.board, (255, 255, 255), (200, 475, 200, 100))
+                            draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                     else:
                         if len(entered_message) < 10:
                             entered_message += event.unicode
                     print("entered_message", entered_message)
-                    rendered_entered_message = self.text.render(entered_message, True, (0, 0, 0))
+                    rendered_entered_message = self.text.render(entered_message, True, self.black_tuple)
                     self.board.blit(rendered_entered_message, (200, 475))
                     flip()
                     
             
             if mouse.get_pressed()[0]:
+                # If drawer is drawing, check color and send x, y coordinates to other clients.
                 if self.is_drawer:
                     coordinates = mouse.get_pos()
                     if self.clear_button.collidepoint(coordinates):
-                        draw.rect(self.board, (255,255,255), (0,0,500,440))
+                        draw.rect(self.board, self.white_tuple, (0,0,500,440))
                     self.draw_color = self.get_color(coordinates)
                     self.information["X"], self.information["Y"] = coordinates
 
