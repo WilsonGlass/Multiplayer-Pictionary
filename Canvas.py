@@ -2,6 +2,7 @@ import pygame
 
 drawColor = (0,0,0)
 
+# initialize canvas 
 pygame.init()
 screen = pygame.display.set_mode((500,500))
 pygame.display.set_caption("Pictionary")
@@ -22,6 +23,7 @@ font = pygame.font.SysFont(None, 24)
 img2 = font.render('CLEAR', True, (0,0,0))
 screen.blit(img2, (420, 470))
 
+# allows drawing while game is running
 while loop:
     try:
         for event in pygame.event.get():
@@ -31,7 +33,8 @@ while loop:
         font = pygame.font.SysFont(None, 24)
         img = font.render('TIME: 60', True, (0,0,0))
         screen.blit(img, (420, 10))
-
+    
+        # creates color changing buttons
         pygame.draw.rect(screen, (255,255,255), pygame.Rect(0,450,500,50))
         red = pygame.draw.rect(screen, (255,0,0), pygame.Rect(30,460,30,30))
         blue = pygame.draw.rect(screen, (0,255,0), pygame.Rect(70,460,30,30))
