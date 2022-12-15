@@ -9,6 +9,9 @@ server.bind(ADDR)
 conns = []
 
 def handleclient(conn):
+    """ 
+    Addes someone to the game and distributes information to each client.  It also assigns the drawer.
+    """
     conns.append(conn)
     if len(conns) >= 2:
         conns[0].send("drawer".encode("utf-8"))
@@ -21,6 +24,9 @@ def handleclient(conn):
                 x.send(msg)
 
 def start():
+    """
+    Starts the server and waits for clients to connect to it.
+    """
     server.listen()
     print("SERVER LISTENING")
     while True:
