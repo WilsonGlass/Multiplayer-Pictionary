@@ -49,6 +49,9 @@ class Client:
         threading.Thread(target=self.recvmsgs).start()
 
     def recvmsgs(self) -> None:
+        """
+        Receives a dictionary of information that is used to display the drawings on all player's screens.
+        """
         self.msg = self.client.recv(64).decode("utf-8")
         if self.msg == "drawer":
             self.isdrawer.append(0)
@@ -102,7 +105,8 @@ class Client:
                     if self.x <= self.width:
                         self.client.send(f"{str(self.x)} {str(self.y)}".encode("utf-8"))
                         self.board[self.x//self.pixels][self.y//self.pixels] = (0, 0, 0)
-
+                        
+            # checks guess to the word being drawn
             for msgs in self.msgss:
                 if msgs == self.word:
                     guess_text = self.text.render(msgs, True, (0, 255, 0))
