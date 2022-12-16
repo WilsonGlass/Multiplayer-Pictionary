@@ -1,6 +1,6 @@
-from pygame import init, key, QUIT, MOUSEBUTTONDOWN, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
+from pygame import init, QUIT, MOUSEBUTTONDOWN, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
 from pygame.event import get
-from pygame.display import set_caption, set_mode, update, flip
+from pygame.display import update, flip
 from pygame.font import Font
 from socket import socket, gethostbyname, gethostname, AF_INET, SOCK_STREAM
 from threading import Thread
@@ -12,7 +12,7 @@ class Client(object):
         init()
 
         # Socket information
-        self.port = 5050
+        self.port = 53444
         self.ip = gethostbyname(gethostname())
         self.addr = (self.ip, self.port)
         self.client = socket(AF_INET, SOCK_STREAM)
@@ -20,9 +20,12 @@ class Client(object):
         self.information = {
             "X": None, 
             "Y": None, 
-            "msg": None,
             "drawer": None,
-            "word": None
+            "word": "",
+            "connected": True,
+            "player_id": None,
+            "player_id_won": None,
+            "color": (0, 0, 0)
         }
 
         # Pygame information
@@ -34,16 +37,15 @@ class Client(object):
         self.msgss = []
         self.width = int
         self.height = int
-        self.pixels = 4
         self.board = None
-        self.istyping = False
         self.text = Font(None, 25)
         self.first_message = None
         self.red = None
         self.blue = None
         self.green = None
         self.black = None
-        self.draw_color = (0, 0, 0)
+        self.clear_button = None
+        self.player_id = None
 
     def connect(self) -> None:
         """
@@ -53,7 +55,7 @@ class Client(object):
             self.client.connect(self.addr)
             Thread(target=self.recvmsgs).start()
         except Exception as e:
-            print("Error connecting to server")
+            print("Error connecting to server. Please run the server program first.")
             print(e)
 
     def recvmsgs(self) -> None:
@@ -63,22 +65,31 @@ class Client(object):
         """
         try:
             self.first_message = loads(self.client.recv(4096))
-            print("First message: ", self.first_message)
             if self.first_message["drawer"] == True:
                 self.is_drawer.append(0)
-            print("Is Drawer ", self.is_drawer)
-            while True:
+            self.player_id = self.first_message["player_id"]
+            while self.information["connected"] != False:
                 # loads information from other clients
                 self.information = loads(self.client.recv(4096))
-                print(self.information)
+                print(str(self.information["X"]) + " " + str(self.information["Y"]))
+
+                if self.information["player_id_won"]:
+                    player_who_has_won = self.information["player_id_won"]
+                    losing_message = self.text.render(f"PLAYER {player_who_has_won} HAS WON. YOU ARE PLAYER {self.player_id}.", True, (0, 255, 0))
+                    self.board.blit(losing_message, (0, 0))
+
                 if not self.is_drawer:
-                    self.draw_color = self.get_color((self.information["X"], self.information["Y"]))
+                    self.information["color"] = self.get_color((self.information["X"], self.information["Y"]))
                     #clear canvas button
                     if self.clear_button.collidepoint((self.information["X"], self.information["Y"])):
                         draw.rect(self.board, self.white_tuple, (0,0,500,440))
-                    draw.rect(self.board, self.draw_color, (self.information["X"], self.information["Y"], 10, 10))
-                if self.information["msg"] != None:
-                    self.msgss.append(self.information["msg"])
+                    draw.rect(self.board, self.information["color"], (self.information["X"], self.information["Y"], 10, 10))
+                else:
+                    drawer_text = self.text.render("YOU ARE A DRAWER", True, self.black_tuple)
+                    string_text = "draw the word " + str(self.information["word"])
+                    word_text = self.text.render(string_text, True, self.black_tuple)
+                    self.board.blit(drawer_text, (200, 460))
+                    self.board.blit(word_text, (200, 480))
         except Exception as e:
             print("Error in recvmsgs")
             print(e)
@@ -94,6 +105,7 @@ class Client(object):
             self.height = can.height
             self.width = can.width
             self.board = can.get_screen()
+            self.white_background = can.white_background
             self.red = can.red
             self.blue = can.blue
             self.green = can.green
@@ -119,7 +131,7 @@ class Client(object):
                 return self.black_tuple
             else:
                 # return what it already is.
-                return self.draw_color
+                return self.information["color"]
         except Exception as e:
             print("Error in get_color")
             print(e)
@@ -135,8 +147,10 @@ class Client(object):
         while subscribed:
             for event in get():
                 if event.type == QUIT:
+                    self.information["connected"] = False
+                    subscribed = False
                     quit()
-                elif event.type == KEYDOWN:
+                elif event.type == KEYDOWN and not self.is_drawer:
                     if event.key == K_BACKSPACE:
                         entered_message = ""
                         draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
@@ -145,16 +159,13 @@ class Client(object):
                     elif event.key == K_RETURN:
                         if not self.is_drawer:
                             if entered_message == self.information["word"]:
-                                print("YOU WIN")
-                                self.information["msg"] = "WIN"
-                                winning_message = self.text.render("YOU WIN", True, (0, 255, 0))
-                                self.board.blit(winning_message, (0, 0))
+                                self.information["player_id_won"] = self.player_id
+                                self.client.send(dumps(self.information))
                             entered_message = ""
                             draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                     else:
                         if len(entered_message) < 10:
                             entered_message += event.unicode
-                    print("entered_message", entered_message)
                     rendered_entered_message = self.text.render(entered_message, True, self.black_tuple)
                     self.board.blit(rendered_entered_message, (200, 475))
                     flip()
@@ -166,12 +177,12 @@ class Client(object):
                     coordinates = mouse.get_pos()
                     if self.clear_button.collidepoint(coordinates):
                         draw.rect(self.board, self.white_tuple, (0,0,500,440))
-                    self.draw_color = self.get_color(coordinates)
+                        self.client.send(dumps(self.information))
+                    self.information["color"] = self.get_color(coordinates)
                     self.information["X"], self.information["Y"] = coordinates
 
-                    if self.information["X"] <= self.width:
+                    if (self.information["Y"] <= 430):
+                        draw.rect(self.board, self.information["color"], (self.information["X"], self.information["Y"], 10, 10))
                         self.client.send(dumps(self.information))
-                        print(self.draw_color)
-                        draw.rect(self.board, self.draw_color, (self.information["X"], self.information["Y"], 10, 10))
 
             update()
