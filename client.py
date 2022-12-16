@@ -47,6 +47,16 @@ class Client(object):
         self.clear_button = None
         self.player_id = None
 
+    def get_word(self, filename):
+        """
+        Reads in words from the words.json file and picks one at random. """
+
+        f = open(filename)
+        data = json.load(f)
+        words = data["possible words"]
+        word = random.choice(words)
+        return word
+        
     def connect(self) -> None:
         """
         Connects to a given server address and initiates threading the information between them.
