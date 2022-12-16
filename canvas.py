@@ -1,25 +1,39 @@
 import pygame
 
 
-class Canvas:
+class Canvas(object):
     def __init__(self):
-        """
-        Trying to figure out how to make this canvas useful because pygame GUI seems to just run in a while loop...
-        """
-        self.width = 400
-        self.height = 400
-        self.pixels = 4
+        pygame.init()
+        self.drawColor = (0,0,0)
+        self.screen = pygame.display.set_mode((500,500))
+        pygame.display.set_caption("Pictionary")
+        self.screen.fill((255, 255, 255))
+        pygame.display.flip()
+        self.width = self.screen.get_width()
+        self.height = self.screen.get_height()
+        self.font = pygame.font.SysFont(None, 24)
 
-    def create_window(self):       
-        window = pygame.display.set_mode((self.width+200, self.height))
-        return window
+    def get_screen(self):
+        return self.screen
 
-    def create_screen(self):
-        screen=[[(255, 255, 255) for _ in range(self.width//self.pixels)] for _ in range(self.width//self.pixels)]
-        return screen
+    def buttons(self):
+        self.white_background = pygame.draw.rect(self.screen, (255,255,255), pygame.Rect(0,450,500,50))
+        self.red = pygame.draw.rect(self.screen, (255,0,0), pygame.Rect(30,460,30,30))
+        self.blue = pygame.draw.rect(self.screen, (0,0,255), pygame.Rect(110,460,30,30))
+        self.green = pygame.draw.rect(self.screen, (0,255,0), pygame.Rect(70,460,30,30))
+        self.black = pygame.draw.rect(self.screen, (0,0,0), pygame.Rect(150,460,30,30))
+        self.clear_button = pygame.draw.rect(self.screen, (100,100,100), (420,470,60,60))
+        
+    def canvas(self) -> None:
+        try:
+            pygame.draw.rect(self.screen, (255,255,255), pygame.Rect(0,450,500,50))
+            pygame.draw.rect(self.screen, (0,0,0), pygame.Rect(0,440,500,10))
 
-    def get_width_height(self):
-        return self.width, self.height
-
-    def get_pixel_ratio(self):
-        return self.pixels
+            self.font = pygame.font.SysFont(None, 24)
+            self.img2 = self.font.render('CLEAR', True, (0,0,0))
+            self.screen.blit(self.img2, (420, 470))
+            
+            pygame.display.update()
+        except Exception as e:
+            print(e)
+            pygame.quit()

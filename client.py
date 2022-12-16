@@ -1,35 +1,51 @@
-import pygame
-import sys
-import socket
-import threading
-import json
-import random
+from pygame import init, QUIT, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
+from pygame.event import get
+from pygame.display import update, flip
+from pygame.font import Font
+from socket import socket, gethostbyname, gethostname, AF_INET, SOCK_STREAM
+from threading import Thread
+from pickle import dumps, loads
+from canvas import Canvas
 
-class Client:
+class Client(object):
     def __init__(self) -> None:
-        pygame.init()
+        init()
 
         # Socket information
-        self.port = 5050
-        self.ip = socket.gethostbyname(socket.gethostname())
+        self.port = 53444
+        self.ip = gethostbyname(gethostname())
         self.addr = (self.ip, self.port)
-        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client = socket(AF_INET, SOCK_STREAM)
+        self.is_drawer = []
+        self.information = {
+            "X": None, 
+            "Y": None, 
+            "drawer": None,
+            "word": "",
+            "connected": True,
+            "player_id": None,
+            "player_id_won": None,
+            "color": (0, 0, 0)
+        }
 
         # Pygame information
-        self.isdrawer = []
+        self.black_tuple = (0, 0, 0)
+        self.white_tuple = (255, 255, 255)
+        self.red_tuple = (255, 0, 0)
+        self.green_tuple = (0, 255, 0)
+        self.blue_tuple = (0, 0, 255)
         self.msgss = []
-        self.word = self.get_word('words.json')
-        self.x = int
-        self.y = int
-        self.width = 400
-        self.height = 400
-        self.pixels = 4
-        self.screen = pygame.display.set_mode((self.width+200, self.height))
-        pygame.display.set_caption("Pictionary")
-        self.board = [[(255, 255, 255) for _ in range(self.width//self.pixels)] for _ in range(self.width//self.pixels)]
-        self.istyping = False
-        self.msg = ""
-        self.text = pygame.font.Font(None, 25)
+        self.width = int
+        self.height = int
+        self.board = None
+        self.text = Font(None, 25)
+        self.first_message = None
+        self.red = None
+        self.blue = None
+        self.green = None
+        self.black = None
+        self.clear_button = None
+        self.player_id = None
 
     def get_word(self, filename):
         """
@@ -45,79 +61,138 @@ class Client:
         """
         Connects to a given server address and initiates threading the information between them.
         """
-        self.client.connect(self.addr)
-        threading.Thread(target=self.recvmsgs).start()
+        try:
+            self.client.connect(self.addr)
+            Thread(target=self.recvmsgs).start()
+        except Exception as e:
+            print("Error connecting to server. Please run the server program first.")
+            print(e)
 
     def recvmsgs(self) -> None:
-        self.msg = self.client.recv(64).decode("utf-8")
-        if self.msg == "drawer":
-            self.isdrawer.append(0)
-        else:
-            info_from_server = self.client.recv(300).decode("utf-8")
-            try:
-                self.x, self.y = info_from_server.split()
-                self.x = int(self.x)
-                self.y = int(self.y)
-                if not self.isdrawer:
-                    self.board[self.x//self.pixels][self.y//self.pixels] = (0, 0, 0)
-            except:
-                self.msgss.append(info_from_server)
+        """
+        Pickle loads incoming information and changes self.information accordingly.
+        If a guesser, will update canvas as the drawer's x and y coordinates are sent in.
+        """
+        try:
+            self.first_message = loads(self.client.recv(4096))
+            if self.first_message["drawer"] == True:
+                self.is_drawer.append(0)
+            self.player_id = self.first_message["player_id"]
+            while self.information["connected"] != False:
+                # loads information from other clients
+                self.information = loads(self.client.recv(4096))
+                print(str(self.information["X"]) + " " + str(self.information["Y"]))
+
+                if self.information["player_id_won"]:
+                    player_who_has_won = self.information["player_id_won"]
+                    losing_message = self.text.render(f"PLAYER {player_who_has_won} HAS WON. YOU ARE PLAYER {self.player_id}.", True, (0, 255, 0))
+                    self.board.blit(losing_message, (0, 0))
+
+                if not self.is_drawer:
+                    self.information["color"] = self.get_color((self.information["X"], self.information["Y"]))
+                    #clear canvas button
+                    if self.clear_button.collidepoint((self.information["X"], self.information["Y"])):
+                        draw.rect(self.board, self.white_tuple, (0,0,500,440))
+                    draw.rect(self.board, self.information["color"], (self.information["X"], self.information["Y"], 10, 10))
+                else:
+                    drawer_text = self.text.render("YOU ARE A DRAWER", True, self.black_tuple)
+                    string_text = "draw the word " + str(self.information["word"])
+                    word_text = self.text.render(string_text, True, self.black_tuple)
+                    self.board.blit(drawer_text, (200, 460))
+                    self.board.blit(word_text, (200, 480))
+        except Exception as e:
+            print("Error in recvmsgs")
+            print(e)
+
+    def initialize_canvas(self):
+        """
+        creates the canvas, screen, and buttons
+        """
+        try:
+            can = Canvas()
+            can.canvas()
+            can.buttons()
+            self.height = can.height
+            self.width = can.width
+            self.board = can.get_screen()
+            self.white_background = can.white_background
+            self.red = can.red
+            self.blue = can.blue
+            self.green = can.green
+            self.black = can.black
+            self.clear_button = can.clear_button
+        except Exception as e:
+            print("Error in initialize_canvas")
+            print(e)
+
+    def get_color(self, coordinates: tuple) -> tuple:
+        """
+        If the color buttons are clicked, returns the colors corresponding tuple.
+        e.g. (0, 0, 0) is black.
+        """
+        try:
+            if self.red.collidepoint(coordinates):
+                return self.red_tuple
+            elif self.blue.collidepoint(coordinates):
+                return self.blue_tuple
+            elif self.green.collidepoint(coordinates):
+                return self.green_tuple
+            elif self.black.collidepoint(coordinates):
+                return self.black_tuple
+            else:
+                # return what it already is.
+                return self.information["color"]
+        except Exception as e:
+            print("Error in get_color")
+            print(e)
+
 
     def sub(self) -> None:
         """
         Subscribing to the information being sent in.
+        Key strokes, clicks, mouse movements, etc.
         """
         subscribed = True
         entered_message = ""
         while subscribed:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.display.quit()
-                    sys.exit()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if self.width+20 <= event.pos[0] <= self.width+160 and self.height - 20 <= event.pos[1] <= self.height:
-                        self.istyping=True
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_BACKSPACE:
-                        entered_message = entered_message[:-1]
-                    elif event.key == pygame.K_SPACE:
+            for event in get():
+                if event.type == QUIT:
+                    self.information["connected"] = False
+                    subscribed = False
+                    quit()
+                elif event.type == KEYDOWN and not self.is_drawer:
+                    if event.key == K_BACKSPACE:
+                        entered_message = ""
+                        draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
+                    elif event.key == K_SPACE:
                         pass
-                    elif event.key == pygame.K_RETURN:
-                        if not self.isdrawer:
-                            if entered_message not in self.msgss:
-                                self.client.send(entered_message.encode("utf-8"))
-                            if self.msg == self.word:
-                                print("YOU WIN")
+                    elif event.key == K_RETURN:
+                        if not self.is_drawer:
+                            if entered_message == self.information["word"]:
+                                self.information["player_id_won"] = self.player_id
+                                self.client.send(dumps(self.information))
                             entered_message = ""
+                            draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                     else:
-                        entered_message += event.unicode
-
-                if (entered_message != "drawer"):
-                    self.msg = entered_message
+                        if len(entered_message) < 10:
+                            entered_message += event.unicode
+                    rendered_entered_message = self.text.render(entered_message, True, self.black_tuple)
+                    self.board.blit(rendered_entered_message, (200, 475))
+                    flip()
                     
             
-            if pygame.mouse.get_pressed()[0]:
-                if self.isdrawer:
-                    self.x, self.y = pygame.mouse.get_pos()
-                    if self.x <= self.width:
-                        self.client.send(f"{str(self.x)} {str(self.y)}".encode("utf-8"))
-                        self.board[self.x//self.pixels][self.y//self.pixels] = (0, 0, 0)
+            if mouse.get_pressed()[0]:
+                # If drawer is drawing, check color and send x, y coordinates to other clients.
+                if self.is_drawer:
+                    coordinates = mouse.get_pos()
+                    if self.clear_button.collidepoint(coordinates):
+                        draw.rect(self.board, self.white_tuple, (0,0,500,440))
+                        self.client.send(dumps(self.information))
+                    self.information["color"] = self.get_color(coordinates)
+                    self.information["X"], self.information["Y"] = coordinates
 
-            for msgs in self.msgss:
-                if msgs == self.word:
-                    guess_text = self.text.render(msgs, True, (0, 255, 0))
-                else:
-                    guess_text = self.text.render(msgs, True, (255, 255, 255))
-                self.screen.blit(guess_text, (self.width+20, 15*self.msgss.index(msgs)))
+                    if (self.information["Y"] <= 430):
+                        draw.rect(self.board, self.information["color"], (self.information["X"], self.information["Y"], 10, 10))
+                        self.client.send(dumps(self.information))
 
-
-            pygame.draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
-            guess_being_entered = self.text.render(self.msg, True, (255,255,255))
-            self.screen.blit(guess_being_entered, (self.width+10, self.height-15))
-
-
-            for i in range(len(self.board)):
-                for j in range(len(self.board[0])):
-                    pygame.draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
-
-            pygame.display.update()
+            update()
