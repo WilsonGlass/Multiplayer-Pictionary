@@ -28,27 +28,36 @@
 </summary>
 <pre><code class="python">from socket import gethostbyname, gethostname, socket,AF_INET, SOCK_STREAM
 from threading import Thread
-from pickle import dumps
+from pickle import dumps, loads
+from player import Player
 
-PORT = 5050
+PORT = 53444
 IP = gethostbyname(gethostname())
 ADDR = (IP, PORT)
 server = socket(AF_INET, SOCK_STREAM)
 server.bind(ADDR)
 conns = []
+word = Player.get_word()
 guesser_information = {
             &#34;X&#34;: 0, 
-            &#34;Y&#34;: 0, 
-            &#34;msg&#34;: None,
-            &#34;drawer&#34;: False
+            &#34;Y&#34;: 0,
+            &#34;drawer&#34;: False,
+            &#34;word&#34;: word,
+            &#34;connected&#34;: True,
+            &#34;player_id&#34;: None, #to be assigned
+            &#34;player_id_won&#34;: None,
+            &#34;color&#34;: (0, 0, 0)
 }
 drawer_information = {
             &#34;X&#34;: 0, 
-            &#34;Y&#34;: 0, 
-            &#34;msg&#34;: None,
-            &#34;drawer&#34;: True
+            &#34;Y&#34;: 0,
+            &#34;drawer&#34;: True,
+            &#34;word&#34;: word,
+            &#34;connected&#34;: True,
+            &#34;player_id&#34;: 0, #to be assigned
+            &#34;player_id_won&#34;: None,
+            &#34;color&#34;: (0, 0, 0)
 }
-pickled_guesser_information = dumps(guesser_information)
 pickled_drawer_information = dumps(drawer_information)
 
 
@@ -56,32 +65,51 @@ pickled_drawer_information = dumps(drawer_information)
 def handleclient(conn: socket, addr: str) -&gt; None:
     &#34;&#34;&#34;
     Distributes the information between each client.
+    :param conn: connection socket being handled
+    :param addr: address of the client
     &#34;&#34;&#34;
-    conns.append(conn)
-    conns[0].send(pickled_drawer_information)
-    if len(conns) &gt;= 2:
-        connection_index = conns.index(conn)
-        print(&#34;connection index &#34;, connection_index)
-        
-        if connection_index != 0:
-            conns[connection_index].send(pickled_guesser_information)
+    try:
+        print(f&#34;[NEW CONNECTION] {addr} connected.&#34;)
+        conns.append(conn)
+        conns[0].send(pickled_drawer_information)
+        if len(conns) &gt;= 2:
+            connection_index = conns.index(conn)
+            
+            if connection_index != 0:
+                guesser_information[&#34;player_id&#34;] = connection_index
+                pickled_guesser_information = dumps(guesser_information)
+                conns[connection_index].send(pickled_guesser_information)
 
-    while True:
-        msg = conn.recv(4096)
-        if msg:
-            for x in conns:
-                x.send(msg)
+        connected = True
+        while connected:
+            msg = conn.recv(4096)
+            if msg:
+                for x in conns:
+                    x.send(msg)
+            unpickled_message = loads(msg)
+            if unpickled_message[&#34;connected&#34;] == False:
+                del conns[connection_index]
+                connected = False
+                conn.close()
+            
+    except Exception as e:
+        print(f&#34;Error in handleclient with ip {addr}&#34;)
+        print(f&#34;Error message: {e}&#34;)
 
 def start() -&gt; None:
     &#34;&#34;&#34;
     Initializes the server to be connected to.
     &#34;&#34;&#34;
-    server.listen()
-    print(&#34;SERVER LISTENING&#34;)
-    while True:
-        conn, addr = server.accept()
-        Thread(target=handleclient, args=(conn, addr)).start()
-        print(&#34;CLIENT CONNECTED&#34;)
+    try:
+        server.listen()
+        print(&#34;SERVER LISTENING&#34;)
+        while True:
+            conn, addr = server.accept()
+            Thread(target=handleclient, args=(conn, addr)).start()
+            print(&#34;CLIENT CONNECTED&#34;)
+    except Exception as e:
+        print(&#34;Error starting server.&#34;)
+        print(f&#34;Error message: {e}&#34;)
 
 if __name__==&#34;__main__&#34;:
     start()</code></pre>
@@ -98,7 +126,9 @@ if __name__==&#34;__main__&#34;:
 <span>def <span class="ident">handleclient</span></span>(<span>conn: socket.socket, addr: str) ‑> None</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Distributes the information between each client.</p></div>
+<div class="desc"><p>Distributes the information between each client.
+:param conn: connection socket being handled
+:param addr: address of the client</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -106,21 +136,36 @@ if __name__==&#34;__main__&#34;:
 <pre><code class="python">def handleclient(conn: socket, addr: str) -&gt; None:
     &#34;&#34;&#34;
     Distributes the information between each client.
+    :param conn: connection socket being handled
+    :param addr: address of the client
     &#34;&#34;&#34;
-    conns.append(conn)
-    conns[0].send(pickled_drawer_information)
-    if len(conns) &gt;= 2:
-        connection_index = conns.index(conn)
-        print(&#34;connection index &#34;, connection_index)
-        
-        if connection_index != 0:
-            conns[connection_index].send(pickled_guesser_information)
+    try:
+        print(f&#34;[NEW CONNECTION] {addr} connected.&#34;)
+        conns.append(conn)
+        conns[0].send(pickled_drawer_information)
+        if len(conns) &gt;= 2:
+            connection_index = conns.index(conn)
+            
+            if connection_index != 0:
+                guesser_information[&#34;player_id&#34;] = connection_index
+                pickled_guesser_information = dumps(guesser_information)
+                conns[connection_index].send(pickled_guesser_information)
 
-    while True:
-        msg = conn.recv(4096)
-        if msg:
-            for x in conns:
-                x.send(msg)</code></pre>
+        connected = True
+        while connected:
+            msg = conn.recv(4096)
+            if msg:
+                for x in conns:
+                    x.send(msg)
+            unpickled_message = loads(msg)
+            if unpickled_message[&#34;connected&#34;] == False:
+                del conns[connection_index]
+                connected = False
+                conn.close()
+            
+    except Exception as e:
+        print(f&#34;Error in handleclient with ip {addr}&#34;)
+        print(f&#34;Error message: {e}&#34;)</code></pre>
 </details>
 </dd>
 <dt id="server.start"><code class="name flex">
@@ -136,12 +181,16 @@ if __name__==&#34;__main__&#34;:
     &#34;&#34;&#34;
     Initializes the server to be connected to.
     &#34;&#34;&#34;
-    server.listen()
-    print(&#34;SERVER LISTENING&#34;)
-    while True:
-        conn, addr = server.accept()
-        Thread(target=handleclient, args=(conn, addr)).start()
-        print(&#34;CLIENT CONNECTED&#34;)</code></pre>
+    try:
+        server.listen()
+        print(&#34;SERVER LISTENING&#34;)
+        while True:
+            conn, addr = server.accept()
+            Thread(target=handleclient, args=(conn, addr)).start()
+            print(&#34;CLIENT CONNECTED&#34;)
+    except Exception as e:
+        print(&#34;Error starting server.&#34;)
+        print(f&#34;Error message: {e}&#34;)</code></pre>
 </details>
 </dd>
 </dl>

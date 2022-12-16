@@ -26,21 +26,21 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">from pygame import init, key, QUIT, MOUSEBUTTONDOWN, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
+<pre><code class="python">from pygame import init, QUIT, MOUSEBUTTONDOWN, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
 from pygame.event import get
-from pygame.display import set_caption, set_mode, update
+from pygame.display import update, flip
 from pygame.font import Font
 from socket import socket, gethostbyname, gethostname, AF_INET, SOCK_STREAM
 from threading import Thread
 from pickle import dumps, loads
 from canvas import Canvas
 
-class Client:
+class Client(object):
     def __init__(self) -&gt; None:
         init()
 
         # Socket information
-        self.port = 5050
+        self.port = 53444
         self.ip = gethostbyname(gethostname())
         self.addr = (self.ip, self.port)
         self.client = socket(AF_INET, SOCK_STREAM)
@@ -48,24 +48,32 @@ class Client:
         self.information = {
             &#34;X&#34;: None, 
             &#34;Y&#34;: None, 
-            &#34;msg&#34;: None,
-            &#34;drawer&#34;: None
+            &#34;drawer&#34;: None,
+            &#34;word&#34;: &#34;&#34;,
+            &#34;connected&#34;: True,
+            &#34;player_id&#34;: None,
+            &#34;player_id_won&#34;: None,
+            &#34;color&#34;: (0, 0, 0)
         }
 
         # Pygame information
+        self.black_tuple = (0, 0, 0)
+        self.white_tuple = (255, 255, 255)
+        self.red_tuple = (255, 0, 0)
+        self.green_tuple = (0, 255, 0)
+        self.blue_tuple = (0, 0, 255)
         self.msgss = []
-        self.word = &#34;clown&#34;
         self.width = int
         self.height = int
-        self.pixels = 4
         self.board = None
-        self.istyping = False
         self.text = Font(None, 25)
         self.first_message = None
         self.red = None
         self.blue = None
         self.green = None
         self.black = None
+        self.clear_button = None
+        self.player_id = None
 
     def connect(self) -&gt; None:
         &#34;&#34;&#34;
@@ -75,7 +83,7 @@ class Client:
             self.client.connect(self.addr)
             Thread(target=self.recvmsgs).start()
         except Exception as e:
-            print(&#34;Error connecting to server&#34;)
+            print(&#34;Error connecting to server. Please run the server program first.&#34;)
             print(e)
 
     def recvmsgs(self) -&gt; None:
@@ -85,84 +93,125 @@ class Client:
         &#34;&#34;&#34;
         try:
             self.first_message = loads(self.client.recv(4096))
-            print(&#34;First message: &#34;, self.first_message)
             if self.first_message[&#34;drawer&#34;] == True:
                 self.is_drawer.append(0)
-            print(&#34;Is Drawer &#34;, self.is_drawer)
-            while True:
+            self.player_id = self.first_message[&#34;player_id&#34;]
+            while self.information[&#34;connected&#34;] != False:
                 # loads information from other clients
                 self.information = loads(self.client.recv(4096))
-                print(self.information)
+                print(str(self.information[&#34;X&#34;]) + &#34; &#34; + str(self.information[&#34;Y&#34;]))
+
+                if self.information[&#34;player_id_won&#34;]:
+                    player_who_has_won = self.information[&#34;player_id_won&#34;]
+                    losing_message = self.text.render(f&#34;PLAYER {player_who_has_won} HAS WON. YOU ARE PLAYER {self.player_id}.&#34;, True, (0, 255, 0))
+                    self.board.blit(losing_message, (0, 0))
+
                 if not self.is_drawer:
-                    draw.rect(self.board, (0,0,0), (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
-                if self.information[&#34;msg&#34;] != None:
-                    self.msgss.append(self.information[&#34;msg&#34;])
+                    self.information[&#34;color&#34;] = self.get_color((self.information[&#34;X&#34;], self.information[&#34;Y&#34;]))
+                    #clear canvas button
+                    if self.clear_button.collidepoint((self.information[&#34;X&#34;], self.information[&#34;Y&#34;])):
+                        draw.rect(self.board, self.white_tuple, (0,0,500,440))
+                    draw.rect(self.board, self.information[&#34;color&#34;], (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+                else:
+                    drawer_text = self.text.render(&#34;YOU ARE A DRAWER&#34;, True, self.black_tuple)
+                    string_text = &#34;draw the word &#34; + str(self.information[&#34;word&#34;])
+                    word_text = self.text.render(string_text, True, self.black_tuple)
+                    self.board.blit(drawer_text, (200, 460))
+                    self.board.blit(word_text, (200, 480))
         except Exception as e:
             print(&#34;Error in recvmsgs&#34;)
             print(e)
 
     def initialize_canvas(self):
-        can = Canvas()
-        self.height = can.height
-        self.width = can.width
-        self.board = can.get_screen()
-        self.red = can.red
-        self.green = can.green
-        self.blue = can.blue
-        self.black = can.black
+        &#34;&#34;&#34;
+        creates the canvas, screen, and buttons
+        &#34;&#34;&#34;
+        try:
+            can = Canvas()
+            can.canvas()
+            can.buttons()
+            self.height = can.height
+            self.width = can.width
+            self.board = can.get_screen()
+            self.white_background = can.white_background
+            self.red = can.red
+            self.blue = can.blue
+            self.green = can.green
+            self.black = can.black
+            self.clear_button = can.clear_button
+        except Exception as e:
+            print(&#34;Error in initialize_canvas&#34;)
+            print(e)
+
+    def get_color(self, coordinates: tuple) -&gt; tuple:
+        &#34;&#34;&#34;
+        If the color buttons are clicked, returns the colors corresponding tuple.
+        e.g. (0, 0, 0) is black.
+        &#34;&#34;&#34;
+        try:
+            if self.red.collidepoint(coordinates):
+                return self.red_tuple
+            elif self.blue.collidepoint(coordinates):
+                return self.blue_tuple
+            elif self.green.collidepoint(coordinates):
+                return self.green_tuple
+            elif self.black.collidepoint(coordinates):
+                return self.black_tuple
+            else:
+                # return what it already is.
+                return self.information[&#34;color&#34;]
+        except Exception as e:
+            print(&#34;Error in get_color&#34;)
+            print(e)
 
 
     def sub(self) -&gt; None:
         &#34;&#34;&#34;
         Subscribing to the information being sent in.
+        Key strokes, clicks, mouse movements, etc.
         &#34;&#34;&#34;
         subscribed = True
         entered_message = &#34;&#34;
         while subscribed:
             for event in get():
                 if event.type == QUIT:
+                    self.information[&#34;connected&#34;] = False
+                    subscribed = False
                     quit()
-                elif event.type == KEYDOWN:
+                elif event.type == KEYDOWN and not self.is_drawer:
                     if event.key == K_BACKSPACE:
-                        entered_message = entered_message[:-1]
+                        entered_message = &#34;&#34;
+                        draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                     elif event.key == K_SPACE:
                         pass
                     elif event.key == K_RETURN:
-                        if self.is_drawer:
-                            if entered_message not in self.msgss:
-                                #fix this at some point
-
-                                self.client.send(entered_message.encode(&#34;utf-8&#34;))
-                            if self.information[&#34;msg&#34;] == self.word:
-                                print(&#34;YOU WIN&#34;)
+                        if not self.is_drawer:
+                            if entered_message == self.information[&#34;word&#34;]:
+                                self.information[&#34;player_id_won&#34;] = self.player_id
+                                self.client.send(dumps(self.information))
                             entered_message = &#34;&#34;
+                            draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                     else:
-                        entered_message += event.unicode
+                        if len(entered_message) &lt; 10:
+                            entered_message += event.unicode
+                    rendered_entered_message = self.text.render(entered_message, True, self.black_tuple)
+                    self.board.blit(rendered_entered_message, (200, 475))
+                    flip()
                     
             
             if mouse.get_pressed()[0]:
+                # If drawer is drawing, check color and send x, y coordinates to other clients.
                 if self.is_drawer:
-                    self.information[&#34;X&#34;], self.information[&#34;Y&#34;] = mouse.get_pos()
-                    if self.information[&#34;X&#34;] &lt;= self.width:
+                    coordinates = mouse.get_pos()
+                    if self.clear_button.collidepoint(coordinates):
+                        draw.rect(self.board, self.white_tuple, (0,0,500,440))
                         self.client.send(dumps(self.information))
-                        draw.rect(self.board, (0,0,0), (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+                    self.information[&#34;color&#34;] = self.get_color(coordinates)
+                    self.information[&#34;X&#34;], self.information[&#34;Y&#34;] = coordinates
 
-            #for msgs in self.msgss:
-            #    if msgs == self.word:
-            #        guess_text = self.text.render(msgs, True, (0, 255, 0))
-            #    else:
-            #        guess_text = self.text.render(msgs, True, (255, 255, 255))
-            #    self.screen.blit(guess_text, (self.width+20, 15*self.msgss.index(msgs)))
-
-
-            #draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
-            #guess_being_entered = self.text.render(self.information[&#34;msg&#34;], True, (255,255,255))
-            #self.screen.blit(guess_being_entered, (self.width+10, self.height-15))
-
-
-            #for i in range(len(self.board)):
-            #    for j in range(len(self.board[0])):
-            #        draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
+                    if (self.information[&#34;Y&#34;] &lt;= 430):
+                        draw.rect(self.board, self.information[&#34;color&#34;], (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+                        self.client.send(dumps(self.information))
 
             update()</code></pre>
 </details>
@@ -185,12 +234,12 @@ class Client:
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Client:
+<pre><code class="python">class Client(object):
     def __init__(self) -&gt; None:
         init()
 
         # Socket information
-        self.port = 5050
+        self.port = 53444
         self.ip = gethostbyname(gethostname())
         self.addr = (self.ip, self.port)
         self.client = socket(AF_INET, SOCK_STREAM)
@@ -198,24 +247,32 @@ class Client:
         self.information = {
             &#34;X&#34;: None, 
             &#34;Y&#34;: None, 
-            &#34;msg&#34;: None,
-            &#34;drawer&#34;: None
+            &#34;drawer&#34;: None,
+            &#34;word&#34;: &#34;&#34;,
+            &#34;connected&#34;: True,
+            &#34;player_id&#34;: None,
+            &#34;player_id_won&#34;: None,
+            &#34;color&#34;: (0, 0, 0)
         }
 
         # Pygame information
+        self.black_tuple = (0, 0, 0)
+        self.white_tuple = (255, 255, 255)
+        self.red_tuple = (255, 0, 0)
+        self.green_tuple = (0, 255, 0)
+        self.blue_tuple = (0, 0, 255)
         self.msgss = []
-        self.word = &#34;clown&#34;
         self.width = int
         self.height = int
-        self.pixels = 4
         self.board = None
-        self.istyping = False
         self.text = Font(None, 25)
         self.first_message = None
         self.red = None
         self.blue = None
         self.green = None
         self.black = None
+        self.clear_button = None
+        self.player_id = None
 
     def connect(self) -&gt; None:
         &#34;&#34;&#34;
@@ -225,7 +282,7 @@ class Client:
             self.client.connect(self.addr)
             Thread(target=self.recvmsgs).start()
         except Exception as e:
-            print(&#34;Error connecting to server&#34;)
+            print(&#34;Error connecting to server. Please run the server program first.&#34;)
             print(e)
 
     def recvmsgs(self) -&gt; None:
@@ -235,84 +292,125 @@ class Client:
         &#34;&#34;&#34;
         try:
             self.first_message = loads(self.client.recv(4096))
-            print(&#34;First message: &#34;, self.first_message)
             if self.first_message[&#34;drawer&#34;] == True:
                 self.is_drawer.append(0)
-            print(&#34;Is Drawer &#34;, self.is_drawer)
-            while True:
+            self.player_id = self.first_message[&#34;player_id&#34;]
+            while self.information[&#34;connected&#34;] != False:
                 # loads information from other clients
                 self.information = loads(self.client.recv(4096))
-                print(self.information)
+                print(str(self.information[&#34;X&#34;]) + &#34; &#34; + str(self.information[&#34;Y&#34;]))
+
+                if self.information[&#34;player_id_won&#34;]:
+                    player_who_has_won = self.information[&#34;player_id_won&#34;]
+                    losing_message = self.text.render(f&#34;PLAYER {player_who_has_won} HAS WON. YOU ARE PLAYER {self.player_id}.&#34;, True, (0, 255, 0))
+                    self.board.blit(losing_message, (0, 0))
+
                 if not self.is_drawer:
-                    draw.rect(self.board, (0,0,0), (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
-                if self.information[&#34;msg&#34;] != None:
-                    self.msgss.append(self.information[&#34;msg&#34;])
+                    self.information[&#34;color&#34;] = self.get_color((self.information[&#34;X&#34;], self.information[&#34;Y&#34;]))
+                    #clear canvas button
+                    if self.clear_button.collidepoint((self.information[&#34;X&#34;], self.information[&#34;Y&#34;])):
+                        draw.rect(self.board, self.white_tuple, (0,0,500,440))
+                    draw.rect(self.board, self.information[&#34;color&#34;], (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+                else:
+                    drawer_text = self.text.render(&#34;YOU ARE A DRAWER&#34;, True, self.black_tuple)
+                    string_text = &#34;draw the word &#34; + str(self.information[&#34;word&#34;])
+                    word_text = self.text.render(string_text, True, self.black_tuple)
+                    self.board.blit(drawer_text, (200, 460))
+                    self.board.blit(word_text, (200, 480))
         except Exception as e:
             print(&#34;Error in recvmsgs&#34;)
             print(e)
 
     def initialize_canvas(self):
-        can = Canvas()
-        self.height = can.height
-        self.width = can.width
-        self.board = can.get_screen()
-        self.red = can.red
-        self.green = can.green
-        self.blue = can.blue
-        self.black = can.black
+        &#34;&#34;&#34;
+        creates the canvas, screen, and buttons
+        &#34;&#34;&#34;
+        try:
+            can = Canvas()
+            can.canvas()
+            can.buttons()
+            self.height = can.height
+            self.width = can.width
+            self.board = can.get_screen()
+            self.white_background = can.white_background
+            self.red = can.red
+            self.blue = can.blue
+            self.green = can.green
+            self.black = can.black
+            self.clear_button = can.clear_button
+        except Exception as e:
+            print(&#34;Error in initialize_canvas&#34;)
+            print(e)
+
+    def get_color(self, coordinates: tuple) -&gt; tuple:
+        &#34;&#34;&#34;
+        If the color buttons are clicked, returns the colors corresponding tuple.
+        e.g. (0, 0, 0) is black.
+        &#34;&#34;&#34;
+        try:
+            if self.red.collidepoint(coordinates):
+                return self.red_tuple
+            elif self.blue.collidepoint(coordinates):
+                return self.blue_tuple
+            elif self.green.collidepoint(coordinates):
+                return self.green_tuple
+            elif self.black.collidepoint(coordinates):
+                return self.black_tuple
+            else:
+                # return what it already is.
+                return self.information[&#34;color&#34;]
+        except Exception as e:
+            print(&#34;Error in get_color&#34;)
+            print(e)
 
 
     def sub(self) -&gt; None:
         &#34;&#34;&#34;
         Subscribing to the information being sent in.
+        Key strokes, clicks, mouse movements, etc.
         &#34;&#34;&#34;
         subscribed = True
         entered_message = &#34;&#34;
         while subscribed:
             for event in get():
                 if event.type == QUIT:
+                    self.information[&#34;connected&#34;] = False
+                    subscribed = False
                     quit()
-                elif event.type == KEYDOWN:
+                elif event.type == KEYDOWN and not self.is_drawer:
                     if event.key == K_BACKSPACE:
-                        entered_message = entered_message[:-1]
+                        entered_message = &#34;&#34;
+                        draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                     elif event.key == K_SPACE:
                         pass
                     elif event.key == K_RETURN:
-                        if self.is_drawer:
-                            if entered_message not in self.msgss:
-                                #fix this at some point
-
-                                self.client.send(entered_message.encode(&#34;utf-8&#34;))
-                            if self.information[&#34;msg&#34;] == self.word:
-                                print(&#34;YOU WIN&#34;)
+                        if not self.is_drawer:
+                            if entered_message == self.information[&#34;word&#34;]:
+                                self.information[&#34;player_id_won&#34;] = self.player_id
+                                self.client.send(dumps(self.information))
                             entered_message = &#34;&#34;
+                            draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                     else:
-                        entered_message += event.unicode
+                        if len(entered_message) &lt; 10:
+                            entered_message += event.unicode
+                    rendered_entered_message = self.text.render(entered_message, True, self.black_tuple)
+                    self.board.blit(rendered_entered_message, (200, 475))
+                    flip()
                     
             
             if mouse.get_pressed()[0]:
+                # If drawer is drawing, check color and send x, y coordinates to other clients.
                 if self.is_drawer:
-                    self.information[&#34;X&#34;], self.information[&#34;Y&#34;] = mouse.get_pos()
-                    if self.information[&#34;X&#34;] &lt;= self.width:
+                    coordinates = mouse.get_pos()
+                    if self.clear_button.collidepoint(coordinates):
+                        draw.rect(self.board, self.white_tuple, (0,0,500,440))
                         self.client.send(dumps(self.information))
-                        draw.rect(self.board, (0,0,0), (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+                    self.information[&#34;color&#34;] = self.get_color(coordinates)
+                    self.information[&#34;X&#34;], self.information[&#34;Y&#34;] = coordinates
 
-            #for msgs in self.msgss:
-            #    if msgs == self.word:
-            #        guess_text = self.text.render(msgs, True, (0, 255, 0))
-            #    else:
-            #        guess_text = self.text.render(msgs, True, (255, 255, 255))
-            #    self.screen.blit(guess_text, (self.width+20, 15*self.msgss.index(msgs)))
-
-
-            #draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
-            #guess_being_entered = self.text.render(self.information[&#34;msg&#34;], True, (255,255,255))
-            #self.screen.blit(guess_being_entered, (self.width+10, self.height-15))
-
-
-            #for i in range(len(self.board)):
-            #    for j in range(len(self.board[0])):
-            #        draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
+                    if (self.information[&#34;Y&#34;] &lt;= 430):
+                        draw.rect(self.board, self.information[&#34;color&#34;], (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+                        self.client.send(dumps(self.information))
 
             update()</code></pre>
 </details>
@@ -335,7 +433,39 @@ class Client:
         self.client.connect(self.addr)
         Thread(target=self.recvmsgs).start()
     except Exception as e:
-        print(&#34;Error connecting to server&#34;)
+        print(&#34;Error connecting to server. Please run the server program first.&#34;)
+        print(e)</code></pre>
+</details>
+</dd>
+<dt id="client.Client.get_color"><code class="name flex">
+<span>def <span class="ident">get_color</span></span>(<span>self, coordinates: tuple) ‑> tuple</span>
+</code></dt>
+<dd>
+<div class="desc"><p>If the color buttons are clicked, returns the colors corresponding tuple.
+e.g. (0, 0, 0) is black.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def get_color(self, coordinates: tuple) -&gt; tuple:
+    &#34;&#34;&#34;
+    If the color buttons are clicked, returns the colors corresponding tuple.
+    e.g. (0, 0, 0) is black.
+    &#34;&#34;&#34;
+    try:
+        if self.red.collidepoint(coordinates):
+            return self.red_tuple
+        elif self.blue.collidepoint(coordinates):
+            return self.blue_tuple
+        elif self.green.collidepoint(coordinates):
+            return self.green_tuple
+        elif self.black.collidepoint(coordinates):
+            return self.black_tuple
+        else:
+            # return what it already is.
+            return self.information[&#34;color&#34;]
+    except Exception as e:
+        print(&#34;Error in get_color&#34;)
         print(e)</code></pre>
 </details>
 </dd>
@@ -343,20 +473,31 @@ class Client:
 <span>def <span class="ident">initialize_canvas</span></span>(<span>self)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>creates the canvas, screen, and buttons</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def initialize_canvas(self):
-    can = Canvas()
-    self.height = can.height
-    self.width = can.width
-    self.board = can.get_screen()
-    self.red = can.red
-    self.green = can.green
-    self.blue = can.blue
-    self.black = can.black</code></pre>
+    &#34;&#34;&#34;
+    creates the canvas, screen, and buttons
+    &#34;&#34;&#34;
+    try:
+        can = Canvas()
+        can.canvas()
+        can.buttons()
+        self.height = can.height
+        self.width = can.width
+        self.board = can.get_screen()
+        self.white_background = can.white_background
+        self.red = can.red
+        self.blue = can.blue
+        self.green = can.green
+        self.black = can.black
+        self.clear_button = can.clear_button
+    except Exception as e:
+        print(&#34;Error in initialize_canvas&#34;)
+        print(e)</code></pre>
 </details>
 </dd>
 <dt id="client.Client.recvmsgs"><code class="name flex">
@@ -376,18 +517,31 @@ If a guesser, will update canvas as the drawer's x and y coordinates are sent in
     &#34;&#34;&#34;
     try:
         self.first_message = loads(self.client.recv(4096))
-        print(&#34;First message: &#34;, self.first_message)
         if self.first_message[&#34;drawer&#34;] == True:
             self.is_drawer.append(0)
-        print(&#34;Is Drawer &#34;, self.is_drawer)
-        while True:
+        self.player_id = self.first_message[&#34;player_id&#34;]
+        while self.information[&#34;connected&#34;] != False:
             # loads information from other clients
             self.information = loads(self.client.recv(4096))
-            print(self.information)
+            print(str(self.information[&#34;X&#34;]) + &#34; &#34; + str(self.information[&#34;Y&#34;]))
+
+            if self.information[&#34;player_id_won&#34;]:
+                player_who_has_won = self.information[&#34;player_id_won&#34;]
+                losing_message = self.text.render(f&#34;PLAYER {player_who_has_won} HAS WON. YOU ARE PLAYER {self.player_id}.&#34;, True, (0, 255, 0))
+                self.board.blit(losing_message, (0, 0))
+
             if not self.is_drawer:
-                draw.rect(self.board, (0,0,0), (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
-            if self.information[&#34;msg&#34;] != None:
-                self.msgss.append(self.information[&#34;msg&#34;])
+                self.information[&#34;color&#34;] = self.get_color((self.information[&#34;X&#34;], self.information[&#34;Y&#34;]))
+                #clear canvas button
+                if self.clear_button.collidepoint((self.information[&#34;X&#34;], self.information[&#34;Y&#34;])):
+                    draw.rect(self.board, self.white_tuple, (0,0,500,440))
+                draw.rect(self.board, self.information[&#34;color&#34;], (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+            else:
+                drawer_text = self.text.render(&#34;YOU ARE A DRAWER&#34;, True, self.black_tuple)
+                string_text = &#34;draw the word &#34; + str(self.information[&#34;word&#34;])
+                word_text = self.text.render(string_text, True, self.black_tuple)
+                self.board.blit(drawer_text, (200, 460))
+                self.board.blit(word_text, (200, 480))
     except Exception as e:
         print(&#34;Error in recvmsgs&#34;)
         print(e)</code></pre>
@@ -397,7 +551,8 @@ If a guesser, will update canvas as the drawer's x and y coordinates are sent in
 <span>def <span class="ident">sub</span></span>(<span>self) ‑> None</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Subscribing to the information being sent in.</p></div>
+<div class="desc"><p>Subscribing to the information being sent in.
+Key strokes, clicks, mouse movements, etc.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -405,54 +560,50 @@ If a guesser, will update canvas as the drawer's x and y coordinates are sent in
 <pre><code class="python">def sub(self) -&gt; None:
     &#34;&#34;&#34;
     Subscribing to the information being sent in.
+    Key strokes, clicks, mouse movements, etc.
     &#34;&#34;&#34;
     subscribed = True
     entered_message = &#34;&#34;
     while subscribed:
         for event in get():
             if event.type == QUIT:
+                self.information[&#34;connected&#34;] = False
+                subscribed = False
                 quit()
-            elif event.type == KEYDOWN:
+            elif event.type == KEYDOWN and not self.is_drawer:
                 if event.key == K_BACKSPACE:
-                    entered_message = entered_message[:-1]
+                    entered_message = &#34;&#34;
+                    draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                 elif event.key == K_SPACE:
                     pass
                 elif event.key == K_RETURN:
-                    if self.is_drawer:
-                        if entered_message not in self.msgss:
-                            #fix this at some point
-
-                            self.client.send(entered_message.encode(&#34;utf-8&#34;))
-                        if self.information[&#34;msg&#34;] == self.word:
-                            print(&#34;YOU WIN&#34;)
+                    if not self.is_drawer:
+                        if entered_message == self.information[&#34;word&#34;]:
+                            self.information[&#34;player_id_won&#34;] = self.player_id
+                            self.client.send(dumps(self.information))
                         entered_message = &#34;&#34;
+                        draw.rect(self.board, self.white_tuple, (200, 475, 200, 100))
                 else:
-                    entered_message += event.unicode
+                    if len(entered_message) &lt; 10:
+                        entered_message += event.unicode
+                rendered_entered_message = self.text.render(entered_message, True, self.black_tuple)
+                self.board.blit(rendered_entered_message, (200, 475))
+                flip()
                 
         
         if mouse.get_pressed()[0]:
+            # If drawer is drawing, check color and send x, y coordinates to other clients.
             if self.is_drawer:
-                self.information[&#34;X&#34;], self.information[&#34;Y&#34;] = mouse.get_pos()
-                if self.information[&#34;X&#34;] &lt;= self.width:
+                coordinates = mouse.get_pos()
+                if self.clear_button.collidepoint(coordinates):
+                    draw.rect(self.board, self.white_tuple, (0,0,500,440))
                     self.client.send(dumps(self.information))
-                    draw.rect(self.board, (0,0,0), (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+                self.information[&#34;color&#34;] = self.get_color(coordinates)
+                self.information[&#34;X&#34;], self.information[&#34;Y&#34;] = coordinates
 
-        #for msgs in self.msgss:
-        #    if msgs == self.word:
-        #        guess_text = self.text.render(msgs, True, (0, 255, 0))
-        #    else:
-        #        guess_text = self.text.render(msgs, True, (255, 255, 255))
-        #    self.screen.blit(guess_text, (self.width+20, 15*self.msgss.index(msgs)))
-
-
-        #draw.rect(self.screen, (255, 0, 255), ((self.width, self.height-20), (200, 20)))
-        #guess_being_entered = self.text.render(self.information[&#34;msg&#34;], True, (255,255,255))
-        #self.screen.blit(guess_being_entered, (self.width+10, self.height-15))
-
-
-        #for i in range(len(self.board)):
-        #    for j in range(len(self.board[0])):
-        #        draw.rect(self.screen, self.board[i][j], ((i * self.pixels, j * self.pixels), (self.pixels, self.pixels)))
+                if (self.information[&#34;Y&#34;] &lt;= 430):
+                    draw.rect(self.board, self.information[&#34;color&#34;], (self.information[&#34;X&#34;], self.information[&#34;Y&#34;], 10, 10))
+                    self.client.send(dumps(self.information))
 
         update()</code></pre>
 </details>
@@ -474,6 +625,7 @@ If a guesser, will update canvas as the drawer's x and y coordinates are sent in
 <h4><code><a title="client.Client" href="#client.Client">Client</a></code></h4>
 <ul class="">
 <li><code><a title="client.Client.connect" href="#client.Client.connect">connect</a></code></li>
+<li><code><a title="client.Client.get_color" href="#client.Client.get_color">get_color</a></code></li>
 <li><code><a title="client.Client.initialize_canvas" href="#client.Client.initialize_canvas">initialize_canvas</a></code></li>
 <li><code><a title="client.Client.recvmsgs" href="#client.Client.recvmsgs">recvmsgs</a></code></li>
 <li><code><a title="client.Client.sub" href="#client.Client.sub">sub</a></code></li>

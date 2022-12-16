@@ -29,11 +29,22 @@
 <pre><code class="python"># This module defines the Player class.  A Player object is created for each 
 # player of Pictionary.  The Player object has a unique ID and has access to 
 # the word of the round.
-
+from json import load
+from random import choice
 
 class Player:
-    def set_drawer(conn):
-        ...
+    def get_word(words_file: str=&#34;words.json&#34;, data_type: str=&#34;possible words&#34;) -&gt; str:
+        &#34;&#34;&#34;
+        Reads in words from the words.json file and picks one at random. 
+        :param words_file: The name of the json file you would like to read
+        :param data_type: Data type in json file you would like to read in.
+        &#34;&#34;&#34;
+
+        f = open(words_file)
+        data = load(f)
+        words = data[data_type]
+        word = choice(words)
+        return word
   </code></pre>
 </details>
 </section>
@@ -56,22 +67,44 @@ class Player:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class Player:
-    def set_drawer(conn):
-        ...</code></pre>
+    def get_word(words_file: str=&#34;words.json&#34;, data_type: str=&#34;possible words&#34;) -&gt; str:
+        &#34;&#34;&#34;
+        Reads in words from the words.json file and picks one at random. 
+        :param words_file: The name of the json file you would like to read
+        :param data_type: Data type in json file you would like to read in.
+        &#34;&#34;&#34;
+
+        f = open(words_file)
+        data = load(f)
+        words = data[data_type]
+        word = choice(words)
+        return word</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
-<dt id="player.Player.set_drawer"><code class="name flex">
-<span>def <span class="ident">set_drawer</span></span>(<span>conn)</span>
+<dt id="player.Player.get_word"><code class="name flex">
+<span>def <span class="ident">get_word</span></span>(<span>words_file: str = 'words.json', data_type: str = 'possible words') ‑> str</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Reads in words from the words.json file and picks one at random.
+:param words_file: The name of the json file you would like to read
+:param data_type: Data type in json file you would like to read in.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def set_drawer(conn):
-    ...</code></pre>
+<pre><code class="python">def get_word(words_file: str=&#34;words.json&#34;, data_type: str=&#34;possible words&#34;) -&gt; str:
+    &#34;&#34;&#34;
+    Reads in words from the words.json file and picks one at random. 
+    :param words_file: The name of the json file you would like to read
+    :param data_type: Data type in json file you would like to read in.
+    &#34;&#34;&#34;
+
+    f = open(words_file)
+    data = load(f)
+    words = data[data_type]
+    word = choice(words)
+    return word</code></pre>
 </details>
 </dd>
 </dl>
@@ -90,7 +123,7 @@ class Player:
 <li>
 <h4><code><a title="player.Player" href="#player.Player">Player</a></code></h4>
 <ul class="">
-<li><code><a title="player.Player.set_drawer" href="#player.Player.set_drawer">set_drawer</a></code></li>
+<li><code><a title="player.Player.get_word" href="#player.Player.get_word">get_word</a></code></li>
 </ul>
 </li>
 </ul>

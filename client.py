@@ -1,4 +1,4 @@
-from pygame import init, QUIT, MOUSEBUTTONDOWN, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
+from pygame import init, QUIT, KEYDOWN, K_BACKSPACE, K_SPACE, K_RETURN, mouse, draw
 from pygame.event import get
 from pygame.display import update, flip
 from pygame.font import Font
